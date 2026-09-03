@@ -1,7 +1,6 @@
 import { createError, type H3Event } from 'h3'
 import { serverSupabaseClient } from '#supabase/server'
 import type { Database } from '#shared/types/database.types'
-import type { EstablishmentDto } from '#shared/types/domain'
 
 /**
  * Uses client.auth.getUser() (not the module's serverSupabaseUser helper,
@@ -30,7 +29,7 @@ export async function requireEstablishment(event: H3Event) {
 
   const { data, error } = await client
     .from('establishments')
-    .select('id, name, slug, segment')
+    .select('*')
     .eq('owner_id', user.id)
     .maybeSingle()
 
@@ -45,6 +44,6 @@ export async function requireEstablishment(event: H3Event) {
   return {
     client,
     user,
-    establishment: data satisfies EstablishmentDto,
+    establishment: toEstablishmentDto(data),
   }
 }

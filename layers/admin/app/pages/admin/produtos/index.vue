@@ -94,7 +94,10 @@ const menuUrl = computed(() => {
           <TableBody>
             <TableRow v-for="product in store.items" :key="product.id">
               <TableCell>
-                <p class="font-medium">{{ product.name }}</p>
+                <div class="flex items-center gap-2">
+                  <p class="font-medium">{{ product.name }}</p>
+                  <Badge v-if="product.isFeatured" variant="outline">Destaque</Badge>
+                </div>
                 <p v-if="product.description" class="line-clamp-1 text-xs text-muted-foreground">
                   {{ product.description }}
                 </p>
@@ -102,7 +105,15 @@ const menuUrl = computed(() => {
               <TableCell class="text-muted-foreground">
                 {{ product.category || '—' }}
               </TableCell>
-              <TableCell>{{ formatCurrency(product.price) }}</TableCell>
+              <TableCell>
+                <template v-if="product.promoPrice">
+                  <span class="text-muted-foreground line-through">{{ formatCurrency(product.price) }}</span>
+                  <span class="ml-1 font-medium text-primary">{{ formatCurrency(product.promoPrice) }}</span>
+                </template>
+                <template v-else>
+                  {{ formatCurrency(product.price) }}
+                </template>
+              </TableCell>
               <TableCell>
                 <Badge :variant="product.isActive ? 'success' : 'secondary'">
                   {{ product.isActive ? 'Ativo' : 'Inativo' }}

@@ -18,7 +18,7 @@ export default defineEventHandler(async (event): Promise<PublicMenuDto> => {
 
   const { data: establishment, error: establishmentError } = await client
     .from('establishments')
-    .select('id, name, slug, segment')
+    .select('*')
     .eq('slug', params.data.slug)
     .maybeSingle()
 
@@ -44,7 +44,7 @@ export default defineEventHandler(async (event): Promise<PublicMenuDto> => {
   }
 
   return {
-    establishment,
+    establishment: toEstablishmentDto(establishment),
     products: products.map(toPublicMenuProductDto),
   }
 })

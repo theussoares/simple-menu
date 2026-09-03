@@ -15,10 +15,12 @@ const form = reactive({
   name: '',
   description: '',
   price: '' as number | string,
+  promoPrice: '' as number | string,
   cost: '' as number | string,
   category: '',
   imageUrl: '',
   isActive: true,
+  isFeatured: false,
   sortOrder: 0,
 })
 
@@ -30,10 +32,12 @@ function resetForm() {
   form.name = product?.name ?? ''
   form.description = product?.description ?? ''
   form.price = product?.price ?? ''
+  form.promoPrice = product?.promoPrice ?? ''
   form.cost = product?.cost ?? ''
   form.category = product?.category ?? ''
   form.imageUrl = product?.imageUrl ?? ''
   form.isActive = product?.isActive ?? true
+  form.isFeatured = product?.isFeatured ?? false
   form.sortOrder = product?.sortOrder ?? 0
   errorMessage.value = ''
 }
@@ -49,6 +53,7 @@ async function onSubmit() {
   const parsed = productSchema.safeParse({
     ...form,
     cost: form.cost === '' ? null : form.cost,
+    promoPrice: form.promoPrice === '' ? null : form.promoPrice,
   })
   if (!parsed.success) {
     errorMessage.value = parsed.error.issues[0]?.message ?? 'Verifique os campos do formulário.'
@@ -109,6 +114,12 @@ async function onSubmit() {
         </div>
 
         <div class="space-y-1.5">
+          <Label for="product-promo-price">Preço promocional (R$, opcional)</Label>
+          <Input id="product-promo-price" v-model="form.promoPrice" type="number" min="0" step="0.01" placeholder="Deixe em branco para não usar" />
+          <p class="text-xs text-muted-foreground">Aparece riscado no preço normal, como uma oferta.</p>
+        </div>
+
+        <div class="space-y-1.5">
           <Label for="product-category">Categoria</Label>
           <Input id="product-category" v-model="form.category" placeholder="Ex: Lanches" />
         </div>
@@ -124,6 +135,14 @@ async function onSubmit() {
             <p class="text-xs text-muted-foreground">Produtos indisponíveis ficam ocultos para os clientes.</p>
           </div>
           <Switch v-model="form.isActive" />
+        </div>
+
+        <div class="flex items-center justify-between rounded-md border px-3 py-2">
+          <div>
+            <p class="text-sm font-medium">Destacar no cardápio</p>
+            <p class="text-xs text-muted-foreground">Aparece na vitrine de destaques, no topo do cardápio.</p>
+          </div>
+          <Switch v-model="form.isFeatured" />
         </div>
 
         <p v-if="errorMessage" class="text-sm text-destructive">{{ errorMessage }}</p>

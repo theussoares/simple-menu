@@ -11,13 +11,13 @@ export default defineEventHandler(async (event): Promise<SessionUserDto | null> 
 
   const { data: establishment } = await client
     .from('establishments')
-    .select('id, name, slug, segment')
+    .select('*')
     .eq('owner_id', user.id)
     .maybeSingle()
 
   return {
     id: user.id,
     email: user.email ?? null,
-    establishment: establishment ?? null,
+    establishment: establishment ? toEstablishmentDto(establishment) : null,
   }
 })

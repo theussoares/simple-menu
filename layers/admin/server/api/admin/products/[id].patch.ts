@@ -23,10 +23,12 @@ export default defineEventHandler(async (event): Promise<ProductDto> => {
       name: input.name,
       description: input.description || null,
       price: input.price,
+      promo_price: input.promoPrice ?? null,
       cost: input.cost ?? null,
       category: input.category || null,
       image_url: input.imageUrl || null,
       is_active: input.isActive,
+      is_featured: input.isFeatured,
       sort_order: input.sortOrder,
     })
     .eq('id', params.data.id)

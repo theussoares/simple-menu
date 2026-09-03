@@ -14,6 +14,7 @@ export type Database = {
     Tables: {
       establishments: {
         Row: {
+          cover_image_url: string | null
           created_at: string
           id: string
           name: string
@@ -23,6 +24,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cover_image_url?: string | null
           created_at?: string
           id?: string
           name: string
@@ -32,6 +34,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cover_image_url?: string | null
           created_at?: string
           id?: string
           name?: string
@@ -52,8 +55,10 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean
+          is_featured: boolean
           name: string
           price: number
+          promo_price: number | null
           sort_order: number
           updated_at: string
         }
@@ -66,8 +71,10 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          is_featured?: boolean
           name: string
           price: number
+          promo_price?: number | null
           sort_order?: number
           updated_at?: string
         }
@@ -80,8 +87,10 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          is_featured?: boolean
           name?: string
           price?: number
+          promo_price?: number | null
           sort_order?: number
           updated_at?: string
         }
