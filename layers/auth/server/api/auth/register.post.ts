@@ -1,4 +1,4 @@
-import { createError, defineEventHandler, readValidatedBody } from 'h3'
+import { createError, defineEventHandler, getRequestURL, readValidatedBody } from 'h3'
 import { serverSupabaseClient } from '#supabase/server'
 import type { Database } from '#shared/types/database.types'
 import { registerSchema } from '#shared/schemas/auth.schema'
@@ -15,7 +15,15 @@ export default defineEventHandler(async (event) => {
   const client = await serverSupabaseClient<Database>(event)
   const { email, password } = parsed.data
 
-  const { data, error } = await client.auth.signUp({ email, password })
+  // Built from the current request so it works on localhost, Vercel
+  // previews and production without a hardcoded site URL.
+  const emailRedirectTo = new URL('/confirmar', getRequestURL(event).origin).toString()
+
+  const { data, error } = await client.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo },
+  })
 
   if (error) {
     throw createError({ statusCode: 400, statusMessage: toFriendlyAuthMessage(error) })
