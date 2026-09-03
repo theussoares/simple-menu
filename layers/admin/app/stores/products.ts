@@ -13,7 +13,12 @@ export const useProductsStore = defineStore('admin-products', {
     async fetchAll() {
       this.loading = true
       try {
-        this.items = await $fetch<ProductDto[]>('/api/admin/products')
+        // See auth store's fetchSession() for why this needs
+        // useRequestFetch() rather than the global $fetch: this action is
+        // called from useAsyncData on page load, which runs on the server
+        // and would otherwise send the request without the user's cookies.
+        const requestFetch = useRequestFetch()
+        this.items = await requestFetch<ProductDto[]>('/api/admin/products')
         this.loaded = true
       }
       finally {

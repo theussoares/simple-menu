@@ -15,10 +15,15 @@ export const useAuthStore = defineStore('auth', {
 
   actions: {
     async fetchSession() {
+      // Plain $fetch on the server doesn't forward the incoming request's
+      // cookies, so a page load that runs this via SSR would see an
+      // anonymous request and think nobody is logged in. useRequestFetch()
+      // forwards them (and is a no-op passthrough to $fetch on the client).
+      const requestFetch = useRequestFetch()
       // /api/auth/me sends 204 (empty body) when there's no session, which
       // ofetch surfaces as `undefined` rather than `null` - normalize it so
       // `isAuthenticated` (state.user !== null) can't be fooled by that.
-      this.user = (await $fetch<SessionUserDto | null>('/api/auth/me')) ?? null
+      this.user = (await requestFetch<SessionUserDto | null>('/api/auth/me')) ?? null
       this.loaded = true
       return this.user
     },
