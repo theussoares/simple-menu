@@ -16,6 +16,7 @@ export default defineEventHandler(async (event) => {
     .eq('establishment_id', establishment.id)
 
   if (error) {
+    logServerError('admin.products.delete', error)
     throw createError({ statusCode: 500, statusMessage: 'Não foi possível excluir o produto.' })
   }
   if (!count) {

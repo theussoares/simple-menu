@@ -38,6 +38,7 @@ export default defineEventHandler(async (event): Promise<EstablishmentDto> => {
     .single()
 
   if (error) {
+    logServerError('admin.establishment.insert', error)
     const statusMessage
       = error.code === '23505'
         ? 'Esse identificador já está em uso, tente novamente.'

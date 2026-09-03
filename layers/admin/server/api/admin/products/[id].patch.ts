@@ -35,6 +35,7 @@ export default defineEventHandler(async (event): Promise<ProductDto> => {
     .maybeSingle()
 
   if (error) {
+    logServerError('admin.products.update', error)
     throw createError({ statusCode: 500, statusMessage: 'Não foi possível atualizar o produto.' })
   }
   if (!data) {

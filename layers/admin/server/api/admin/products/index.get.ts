@@ -12,6 +12,7 @@ export default defineEventHandler(async (event): Promise<ProductDto[]> => {
     .order('created_at', { ascending: false })
 
   if (error) {
+    logServerError('admin.products.list', error)
     throw createError({ statusCode: 500, statusMessage: 'Não foi possível carregar os produtos.' })
   }
 

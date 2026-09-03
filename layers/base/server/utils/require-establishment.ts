@@ -27,6 +27,7 @@ export async function requireEstablishment(event: H3Event) {
     .maybeSingle()
 
   if (error) {
+    logServerError('require-establishment.lookup', error)
     throw createError({ statusCode: 500, statusMessage: 'Erro ao carregar estabelecimento' })
   }
   if (!data) {

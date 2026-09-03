@@ -29,6 +29,7 @@ export default defineEventHandler(async (event): Promise<ProductDto> => {
     .single()
 
   if (error) {
+    logServerError('admin.products.create', error)
     throw createError({ statusCode: 500, statusMessage: 'Não foi possível criar o produto.' })
   }
 

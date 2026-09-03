@@ -23,6 +23,7 @@ export default defineEventHandler(async (event): Promise<PublicMenuDto> => {
     .maybeSingle()
 
   if (establishmentError) {
+    logServerError('menu.establishment.lookup', establishmentError)
     throw createError({ statusCode: 500, statusMessage: 'Não foi possível carregar o cardápio.' })
   }
   if (!establishment) {
@@ -38,6 +39,7 @@ export default defineEventHandler(async (event): Promise<PublicMenuDto> => {
     .order('name', { ascending: true })
 
   if (productsError) {
+    logServerError('menu.products.list', productsError)
     throw createError({ statusCode: 500, statusMessage: 'Não foi possível carregar o cardápio.' })
   }
 
