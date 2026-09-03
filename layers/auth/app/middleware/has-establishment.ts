@@ -2,7 +2,7 @@ export default defineNuxtRouteMiddleware(async () => {
   const auth = useAuthStore()
 
   if (!auth.loaded) {
-    await auth.fetchSession()
+    await auth.fetchSession(useRequestFetch() as typeof $fetch)
   }
 
   if (!auth.isAuthenticated) {

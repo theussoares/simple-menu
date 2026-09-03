@@ -10,15 +10,18 @@ export const useProductsStore = defineStore('admin-products', {
   }),
 
   actions: {
-    async fetchAll() {
+    /**
+     * See auth store's fetchSession() for why the fetcher is passed in
+     * rather than calling useRequestFetch() here: this runs from
+     * useAsyncData on page load (server-rendered), and Nuxt only
+     * context-instruments <script setup>/middleware for that, not
+     * arbitrary Pinia actions - calling it in here works during SSR but
+     * throws during client hydration.
+     */
+    async fetchAll(fetcher: typeof $fetch = $fetch) {
       this.loading = true
       try {
-        // See auth store's fetchSession() for why this needs
-        // useRequestFetch() rather than the global $fetch: this action is
-        // called from useAsyncData on page load, which runs on the server
-        // and would otherwise send the request without the user's cookies.
-        const requestFetch = useRequestFetch()
-        this.items = await requestFetch<ProductDto[]>('/api/admin/products')
+        this.items = await fetcher<ProductDto[]>('/api/admin/products')
         this.loaded = true
       }
       finally {

@@ -10,7 +10,8 @@ definePageMeta({
 const auth = useAuthStore()
 const store = useProductsStore()
 
-await useAsyncData('admin-products', () => store.fetchAll())
+const requestFetch = useRequestFetch() as typeof $fetch
+await useAsyncData('admin-products', () => store.fetchAll(requestFetch))
 
 const formOpen = ref(false)
 const deleteOpen = ref(false)

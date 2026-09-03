@@ -4,7 +4,7 @@ definePageMeta({
     'auth',
     async () => {
       const auth = useAuthStore()
-      if (!auth.loaded) await auth.fetchSession()
+      if (!auth.loaded) await auth.fetchSession(useRequestFetch() as typeof $fetch)
       return navigateTo(auth.hasEstablishment ? '/admin/produtos' : '/admin/configuracao')
     },
   ],
