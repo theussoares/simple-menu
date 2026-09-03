@@ -1,14 +1,22 @@
 import { createError, type H3Event } from 'h3'
-import { serverSupabaseClient, serverSupabaseUser } from '#supabase/server'
+import { serverSupabaseClient } from '#supabase/server'
 import type { Database } from '#shared/types/database.types'
 import type { EstablishmentDto } from '#shared/types/domain'
 
+/**
+ * Uses client.auth.getUser() (not the module's serverSupabaseUser helper,
+ * which in this version returns raw JWT claims keyed by `sub` rather than a
+ * proper User object) so `.id` / `.email` are always reliable.
+ */
 export async function requireAuthenticatedUser(event: H3Event) {
-  const user = await serverSupabaseUser(event)
-  if (!user) {
+  const client = await serverSupabaseClient<Database>(event)
+  const { data, error } = await client.auth.getUser()
+
+  if (error || !data.user) {
     throw createError({ statusCode: 401, statusMessage: 'Nao autenticado' })
   }
-  return user
+
+  return data.user
 }
 
 /**
