@@ -6,6 +6,32 @@ export interface EstablishmentDto {
   coverImageUrl: string | null
 }
 
+export interface CategoryDto {
+  id: string
+  establishmentId: string
+  name: string
+  sortOrder: number
+}
+
+export interface ComplementOptionDto {
+  id: string
+  name: string
+  priceDelta: number
+  isActive: boolean
+  sortOrder: number
+}
+
+export interface ComplementGroupDto {
+  id: string
+  establishmentId: string
+  name: string
+  isRequired: boolean
+  minSelect: number
+  maxSelect: number | null
+  sortOrder: number
+  options: ComplementOptionDto[]
+}
+
 export interface ProductDto {
   id: string
   establishmentId: string
@@ -14,13 +40,32 @@ export interface ProductDto {
   price: number
   promoPrice: number | null
   cost: number | null
-  category: string | null
+  categoryId: string | null
   imageUrl: string | null
   isActive: boolean
   isFeatured: boolean
   sortOrder: number
+  complementGroupIds: string[]
   createdAt: string
   updatedAt: string
+}
+
+export interface PublicMenuCategoryDto {
+  id: string
+  name: string
+}
+
+export interface PublicMenuComplementOptionDto {
+  id: string
+  name: string
+  priceDelta: number
+}
+
+export interface PublicMenuComplementGroupDto {
+  id: string
+  name: string
+  isRequired: boolean
+  options: PublicMenuComplementOptionDto[]
 }
 
 export interface PublicMenuProductDto {
@@ -29,9 +74,10 @@ export interface PublicMenuProductDto {
   description: string | null
   price: number
   promoPrice: number | null
-  category: string | null
+  category: PublicMenuCategoryDto | null
   imageUrl: string | null
   isFeatured: boolean
+  complementGroups: PublicMenuComplementGroupDto[]
 }
 
 export interface PublicMenuDto {
