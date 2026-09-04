@@ -2,6 +2,7 @@ import { createError, defineEventHandler, getRouterParams } from 'h3'
 import { z } from 'zod'
 import { serverSupabaseClient } from '#supabase/server'
 import type { Database } from '#shared/types/database.types'
+import type { ProductRowWithMenuRelations } from '#shared/types/database-relations'
 import type { PublicMenuDto } from '#shared/types/domain'
 
 const slugParamSchema = z.object({
@@ -32,19 +33,34 @@ export default defineEventHandler(async (event): Promise<PublicMenuDto> => {
 
   const { data: products, error: productsError } = await client
     .from('products')
-    .select('*')
+    .select(
+      `*,
+      categories (id, name, sort_order),
+      product_complement_groups (
+        complement_groups (
+          id, name, is_required,
+          complement_options (id, name, price_delta, is_active, sort_order)
+        )
+      )`,
+    )
     .eq('establishment_id', establishment.id)
     .eq('is_active', true)
-    .order('sort_order', { ascending: true })
-    .order('name', { ascending: true })
 
   if (productsError) {
     logServerError('menu.products.list', productsError)
     throw createError({ statusCode: 500, statusMessage: 'Não foi possível carregar o cardápio.' })
   }
 
+  const sorted = (products as unknown as ProductRowWithMenuRelations[]).slice().sort((a, b) => {
+    const categoryOrder =
+      (a.categories?.sort_order ?? Number.MAX_SAFE_INTEGER) - (b.categories?.sort_order ?? Number.MAX_SAFE_INTEGER)
+    if (categoryOrder !== 0) return categoryOrder
+    if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order
+    return a.name.localeCompare(b.name)
+  })
+
   return {
     establishment: toEstablishmentDto(establishment),
-    products: products.map(toPublicMenuProductDto),
+    products: sorted.map(toPublicMenuProductDto),
   }
 })
