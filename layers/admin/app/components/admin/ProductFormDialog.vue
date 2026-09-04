@@ -169,7 +169,7 @@ async function onSubmit() {
             + Nova categoria
           </Button>
           <div v-else class="flex gap-2">
-            <Input v-model="newCategoryName" placeholder="Nome da categoria" class="flex-1" />
+            <Input v-model="newCategoryName" placeholder="Nome da categoria" class="flex-1" @keydown.enter.prevent="onCreateCategory" />
             <Button type="button" size="sm" @click="onCreateCategory">
               Criar
             </Button>

@@ -25,7 +25,8 @@ export default defineEventHandler(async (event): Promise<CategoryDto> => {
 
   if (error) {
     logServerError('admin.categories.update', error)
-    throw createError({ statusCode: 500, statusMessage: 'Não foi possível atualizar a categoria.' })
+    const statusMessage = error.code === '23505' ? 'Já existe uma categoria com esse nome.' : 'Não foi possível atualizar a categoria.'
+    throw createError({ statusCode: error.code === '23505' ? 409 : 500, statusMessage })
   }
   if (!data) {
     throw createError({ statusCode: 404, statusMessage: 'Categoria não encontrada.' })

@@ -50,3 +50,32 @@ export async function syncProductComplementGroups(
 
   return validGroupIds
 }
+
+/**
+ * Resolves a category id against the caller's own categories, silently
+ * falling back to null when it's missing, deleted, or belongs to another
+ * establishment (a stale client can resend a category id that was just
+ * unlinked server-side, and categories are fully public-read so a caller
+ * could otherwise pass another establishment's id).
+ */
+export async function resolveCategoryId(
+  client: SupabaseClient<Database>,
+  establishmentId: string,
+  categoryId: string | null,
+): Promise<string | null> {
+  if (!categoryId) return null
+
+  const { data, error } = await client
+    .from('categories')
+    .select('id')
+    .eq('establishment_id', establishmentId)
+    .eq('id', categoryId)
+    .maybeSingle()
+
+  if (error) {
+    logServerError('products.resolve-category', error)
+    return null
+  }
+
+  return data?.id ?? null
+}

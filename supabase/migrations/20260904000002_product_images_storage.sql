@@ -1,5 +1,5 @@
-insert into storage.buckets (id, name, public)
-values ('product-images', 'product-images', true)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('product-images', 'product-images', true, 2097152, array['image/webp', 'image/jpeg', 'image/png'])
 on conflict (id) do nothing;
 
 create policy "product_images_public_read"

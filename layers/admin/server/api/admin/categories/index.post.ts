@@ -22,7 +22,8 @@ export default defineEventHandler(async (event): Promise<CategoryDto> => {
 
   if (error) {
     logServerError('admin.categories.create', error)
-    throw createError({ statusCode: 500, statusMessage: 'Não foi possível criar a categoria.' })
+    const statusMessage = error.code === '23505' ? 'Já existe uma categoria com esse nome.' : 'Não foi possível criar a categoria.'
+    throw createError({ statusCode: error.code === '23505' ? 409 : 500, statusMessage })
   }
 
   return toCategoryDto(data)

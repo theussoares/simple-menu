@@ -22,6 +22,9 @@ async function onConfirm() {
   removing.value = true;
   try {
     await store.remove(props.category.id);
+    productsStore.items.forEach((product) => {
+      if (product.categoryId === props.category?.id) product.categoryId = null;
+    });
     toast.success("Categoria excluída.");
     open.value = false;
   } catch (error) {
