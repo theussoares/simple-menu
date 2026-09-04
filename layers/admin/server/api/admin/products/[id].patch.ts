@@ -17,6 +17,21 @@ export default defineEventHandler(async (event): Promise<ProductDto> => {
 
   const input = parsed.data
 
+  const { data: existing, error: existingError } = await client
+    .from('products')
+    .select('image_url')
+    .eq('id', params.data.id)
+    .eq('establishment_id', establishment.id)
+    .maybeSingle()
+
+  if (existingError) {
+    logServerError('admin.products.update.lookup', existingError)
+    throw createError({ statusCode: 500, statusMessage: 'Não foi possível atualizar o produto.' })
+  }
+  if (!existing) {
+    throw createError({ statusCode: 404, statusMessage: 'Produto não encontrado.' })
+  }
+
   const { data, error } = await client
     .from('products')
     .update({
@@ -25,7 +40,7 @@ export default defineEventHandler(async (event): Promise<ProductDto> => {
       price: input.price,
       promo_price: input.promoPrice ?? null,
       cost: input.cost ?? null,
-      category: input.category || null,
+      category_id: input.categoryId,
       image_url: input.imageUrl || null,
       is_active: input.isActive,
       is_featured: input.isFeatured,
@@ -34,15 +49,19 @@ export default defineEventHandler(async (event): Promise<ProductDto> => {
     .eq('id', params.data.id)
     .eq('establishment_id', establishment.id)
     .select('*')
-    .maybeSingle()
+    .single()
 
   if (error) {
     logServerError('admin.products.update', error)
     throw createError({ statusCode: 500, statusMessage: 'Não foi possível atualizar o produto.' })
   }
-  if (!data) {
-    throw createError({ statusCode: 404, statusMessage: 'Produto não encontrado.' })
+
+  const newImageUrl = input.imageUrl || null
+  if (existing.image_url && existing.image_url !== newImageUrl) {
+    await deleteProductImageIfOwned(client, existing.image_url)
   }
 
-  return toProductDto(data)
+  const complementGroupIds = await syncProductComplementGroups(client, establishment.id, data.id, input.complementGroupIds)
+
+  return toProductDto(data, complementGroupIds)
 })

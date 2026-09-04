@@ -21,7 +21,7 @@ export default defineEventHandler(async (event): Promise<ProductDto> => {
       price: input.price,
       promo_price: input.promoPrice ?? null,
       cost: input.cost ?? null,
-      category: input.category || null,
+      category_id: input.categoryId,
       image_url: input.imageUrl || null,
       is_active: input.isActive,
       is_featured: input.isFeatured,
@@ -35,5 +35,7 @@ export default defineEventHandler(async (event): Promise<ProductDto> => {
     throw createError({ statusCode: 500, statusMessage: 'Não foi possível criar o produto.' })
   }
 
-  return toProductDto(data)
+  const complementGroupIds = await syncProductComplementGroups(client, establishment.id, data.id, input.complementGroupIds)
+
+  return toProductDto(data, complementGroupIds)
 })
