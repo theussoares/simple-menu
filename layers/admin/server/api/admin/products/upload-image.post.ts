@@ -12,7 +12,7 @@ export default defineEventHandler(async (event): Promise<{ url: string }> => {
   if (!file || !file.data.length) {
     throw createError({ statusCode: 400, statusMessage: 'Nenhuma imagem enviada.' })
   }
-  if (file.type && !file.type.startsWith('image/')) {
+  if (!file.type?.startsWith('image/')) {
     throw createError({ statusCode: 400, statusMessage: 'Arquivo enviado não é uma imagem.' })
   }
   if (file.data.length > MAX_UPLOAD_BYTES) {
