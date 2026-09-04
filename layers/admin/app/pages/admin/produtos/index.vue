@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Pencil, Plus, QrCode, Trash2 } from '@lucide/vue'
-import type { ProductDto } from '#shared/types/domain'
+import { QrCode } from '@lucide/vue'
+import { TabsContent, TabsList, TabsTrigger } from '#layers/base/app/components/ui/tabs'
 
 definePageMeta({
   middleware: ['auth', 'has-establishment'],
@@ -8,29 +8,16 @@ definePageMeta({
 })
 
 const auth = useAuthStore()
-const store = useProductsStore()
+const productsStore = useProductsStore()
+const categoriesStore = useCategoriesStore()
+const complementGroupsStore = useComplementGroupsStore()
 
 const requestFetch = useRequestFetch() as typeof $fetch
-await useAsyncData('admin-products', () => store.fetchAll(requestFetch))
-
-const formOpen = ref(false)
-const deleteOpen = ref(false)
-const activeProduct = ref<ProductDto | null>(null)
-
-function openCreate() {
-  activeProduct.value = null
-  formOpen.value = true
-}
-
-function openEdit(product: ProductDto) {
-  activeProduct.value = product
-  formOpen.value = true
-}
-
-function openDelete(product: ProductDto) {
-  activeProduct.value = product
-  deleteOpen.value = true
-}
+await Promise.all([
+  useAsyncData('admin-products', () => productsStore.fetchAll(requestFetch)),
+  useAsyncData('admin-categories', () => categoriesStore.fetchAll(requestFetch)),
+  useAsyncData('admin-complement-groups', () => complementGroupsStore.fetchAll(requestFetch)),
+])
 
 const menuUrl = computed(() => {
   const slug = auth.user?.establishment?.slug
@@ -45,97 +32,32 @@ const menuUrl = computed(() => {
         <h1 class="text-2xl font-semibold tracking-tight">Produtos</h1>
         <p class="text-sm text-muted-foreground">Gerencie o que aparece no seu cardápio digital.</p>
       </div>
-      <div class="flex items-center gap-2">
-        <NuxtLink
-          v-if="menuUrl"
-          :to="menuUrl"
-          target="_blank"
-          class="inline-flex h-9 items-center gap-2 rounded-md border border-input bg-background px-4 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
-        >
-          <QrCode class="size-4" />
-          Ver cardápio
-        </NuxtLink>
-        <Button class="gap-2" @click="openCreate">
-          <Plus class="size-4" />
-          Novo produto
-        </Button>
-      </div>
+      <NuxtLink
+        v-if="menuUrl"
+        :to="menuUrl"
+        target="_blank"
+        class="inline-flex h-9 items-center gap-2 rounded-md border border-input bg-background px-4 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+      >
+        <QrCode class="size-4" />
+        Ver cardápio
+      </NuxtLink>
     </div>
 
-    <Card>
-      <CardContent class="p-0">
-        <div v-if="store.loading && !store.loaded" class="space-y-2 p-6">
-          <div class="h-10 animate-pulse rounded-md bg-muted" />
-          <div class="h-10 animate-pulse rounded-md bg-muted" />
-          <div class="h-10 animate-pulse rounded-md bg-muted" />
-        </div>
-
-        <div v-else-if="store.items.length === 0" class="flex flex-col items-center gap-3 p-12 text-center">
-          <p class="text-sm font-medium">Nenhum produto cadastrado ainda</p>
-          <p class="max-w-sm text-sm text-muted-foreground">
-            Adicione o primeiro item do seu cardápio para começar.
-          </p>
-          <Button class="gap-2" @click="openCreate">
-            <Plus class="size-4" />
-            Novo produto
-          </Button>
-        </div>
-
-        <Table v-else>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Produto</TableHead>
-              <TableHead>Categoria</TableHead>
-              <TableHead>Preço</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead class="text-right">Ações</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow v-for="product in store.items" :key="product.id">
-              <TableCell>
-                <div class="flex items-center gap-2">
-                  <p class="font-medium">{{ product.name }}</p>
-                  <Badge v-if="product.isFeatured" variant="outline">Destaque</Badge>
-                </div>
-                <p v-if="product.description" class="line-clamp-1 text-xs text-muted-foreground">
-                  {{ product.description }}
-                </p>
-              </TableCell>
-              <TableCell class="text-muted-foreground">
-                {{ product.category || '—' }}
-              </TableCell>
-              <TableCell>
-                <template v-if="product.promoPrice">
-                  <span class="text-muted-foreground line-through">{{ formatCurrency(product.price) }}</span>
-                  <span class="ml-1 font-medium text-primary">{{ formatCurrency(product.promoPrice) }}</span>
-                </template>
-                <template v-else>
-                  {{ formatCurrency(product.price) }}
-                </template>
-              </TableCell>
-              <TableCell>
-                <Badge :variant="product.isActive ? 'success' : 'secondary'">
-                  {{ product.isActive ? 'Ativo' : 'Inativo' }}
-                </Badge>
-              </TableCell>
-              <TableCell class="text-right">
-                <div class="flex justify-end gap-1">
-                  <Button variant="ghost" size="icon" aria-label="Editar" @click="openEdit(product)">
-                    <Pencil class="size-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" aria-label="Excluir" @click="openDelete(product)">
-                    <Trash2 class="size-4" />
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </CardContent>
-    </Card>
-
-    <ProductFormDialog v-model="formOpen" :product="activeProduct" />
-    <DeleteProductDialog v-model="deleteOpen" :product="activeProduct" />
+    <Tabs default-value="produtos">
+      <TabsList>
+        <TabsTrigger value="produtos">Produtos</TabsTrigger>
+        <TabsTrigger value="categorias">Categorias</TabsTrigger>
+        <TabsTrigger value="complementos">Complementos</TabsTrigger>
+      </TabsList>
+      <TabsContent value="produtos">
+        <ProductsTab />
+      </TabsContent>
+      <TabsContent value="categorias">
+        <CategoriesTab />
+      </TabsContent>
+      <TabsContent value="complementos">
+        <ComplementGroupsTab />
+      </TabsContent>
+    </Tabs>
   </div>
 </template>
