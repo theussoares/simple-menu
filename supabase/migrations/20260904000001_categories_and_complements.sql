@@ -21,9 +21,10 @@ create trigger categories_set_updated_at
 -- Backfill: every distinct free-text category value becomes a row here,
 -- then products are relinked by id before the old column is dropped.
 insert into public.categories (establishment_id, name)
-select distinct establishment_id, trim(category)
+select establishment_id, min(trim(category))
 from public.products
-where category is not null and trim(category) <> '';
+where category is not null and trim(category) <> ''
+group by establishment_id, lower(trim(category));
 
 alter table public.products add column category_id uuid references public.categories (id) on delete set null;
 
@@ -154,15 +155,27 @@ create policy "product_complement_groups_owner_insert" on public.product_complem
   with check (product_id in (
     select id from public.products
     where establishment_id in (select id from public.establishments where owner_id = (select auth.uid()))
+  )
+  and group_id in (
+    select id from public.complement_groups
+    where establishment_id in (select id from public.establishments where owner_id = (select auth.uid()))
   ));
 create policy "product_complement_groups_owner_update" on public.product_complement_groups for update
   to authenticated
   using (product_id in (
     select id from public.products
     where establishment_id in (select id from public.establishments where owner_id = (select auth.uid()))
+  )
+  and group_id in (
+    select id from public.complement_groups
+    where establishment_id in (select id from public.establishments where owner_id = (select auth.uid()))
   ))
   with check (product_id in (
     select id from public.products
+    where establishment_id in (select id from public.establishments where owner_id = (select auth.uid()))
+  )
+  and group_id in (
+    select id from public.complement_groups
     where establishment_id in (select id from public.establishments where owner_id = (select auth.uid()))
   ));
 create policy "product_complement_groups_owner_delete" on public.product_complement_groups for delete
