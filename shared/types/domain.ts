@@ -4,6 +4,7 @@ export interface EstablishmentDto {
   slug: string
   segment: string | null
   coverImageUrl: string | null
+  logoUrl: string | null
 }
 
 export interface CategoryDto {

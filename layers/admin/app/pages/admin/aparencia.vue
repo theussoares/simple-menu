@@ -11,14 +11,18 @@ definePageMeta({
 const auth = useAuthStore()
 
 const coverImageUrl = ref(auth.user?.establishment?.coverImageUrl ?? '')
+const logoUrl = ref(auth.user?.establishment?.logoUrl ?? '')
 const submitting = ref(false)
 const errorMessage = ref('')
 
 async function onSubmit() {
   errorMessage.value = ''
-  const parsed = updateEstablishmentAppearanceSchema.safeParse({ coverImageUrl: coverImageUrl.value })
+  const parsed = updateEstablishmentAppearanceSchema.safeParse({
+    coverImageUrl: coverImageUrl.value,
+    logoUrl: logoUrl.value,
+  })
   if (!parsed.success) {
-    errorMessage.value = 'Informe uma URL de imagem válida.'
+    errorMessage.value = 'Não foi possível salvar as imagens.'
     return
   }
 
@@ -44,26 +48,29 @@ async function onSubmit() {
   <div class="max-w-xl space-y-6">
     <div>
       <h1 class="text-2xl font-semibold tracking-tight">Aparência do cardápio</h1>
-      <p class="text-sm text-muted-foreground">Personalize o banner que aparece no topo do seu cardápio digital.</p>
+      <p class="text-sm text-muted-foreground">Personalize a logo e o banner que aparecem no seu cardápio digital.</p>
     </div>
 
     <Card>
-      <CardContent class="pt-6">
-        <form class="space-y-4" @submit.prevent="onSubmit">
-          <div class="space-y-1.5">
-            <Label for="cover-image">URL da imagem de capa</Label>
-            <Input id="cover-image" v-model="coverImageUrl" type="url" placeholder="https://..." />
-            <p class="text-xs text-muted-foreground">
-              Recomendado: imagem larga (16:9), pelo menos 1200px de largura.
-            </p>
-          </div>
+      <CardContent class="space-y-6 pt-6">
+        <form class="space-y-6" @submit.prevent="onSubmit">
+          <EstablishmentMediaUpload
+            v-model="logoUrl"
+            endpoint="/api/admin/establishment/logo"
+            label="Logo"
+            hint="Imagem quadrada, aparece no cabeçalho do cardápio e no painel."
+            shape="square"
+            :max-dimension="600"
+          />
 
-          <img
-            v-if="coverImageUrl"
-            :src="coverImageUrl"
-            alt="Pré-visualização da capa"
-            class="aspect-video w-full rounded-md border object-cover"
-          >
+          <EstablishmentMediaUpload
+            v-model="coverImageUrl"
+            endpoint="/api/admin/establishment/cover-image"
+            label="Banner de capa"
+            hint="Imagem larga (recomendado 16:9), aparece no topo do cardápio."
+            shape="banner"
+            :max-dimension="1600"
+          />
 
           <p v-if="errorMessage" class="text-sm text-destructive">{{ errorMessage }}</p>
 

@@ -17,6 +17,7 @@ export type Database = {
           cover_image_url: string | null
           created_at: string
           id: string
+          logo_url: string | null
           name: string
           owner_id: string
           segment: string | null
@@ -27,6 +28,7 @@ export type Database = {
           cover_image_url?: string | null
           created_at?: string
           id?: string
+          logo_url?: string | null
           name: string
           owner_id: string
           segment?: string | null
@@ -37,6 +39,7 @@ export type Database = {
           cover_image_url?: string | null
           created_at?: string
           id?: string
+          logo_url?: string | null
           name?: string
           owner_id?: string
           segment?: string | null

@@ -9,6 +9,7 @@ export type CreateEstablishmentInput = z.infer<typeof createEstablishmentSchema>
 
 export const updateEstablishmentAppearanceSchema = z.object({
   coverImageUrl: z.string().trim().url().max(2048).optional().or(z.literal('')),
+  logoUrl: z.string().trim().url().max(2048).optional().or(z.literal('')),
 })
 
 export type UpdateEstablishmentAppearanceInput = z.infer<typeof updateEstablishmentAppearanceSchema>

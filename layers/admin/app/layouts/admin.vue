@@ -23,8 +23,14 @@ async function onLogout() {
   <div class="flex min-h-svh flex-col bg-muted/30 md:flex-row">
     <aside class="flex shrink-0 flex-col border-b bg-background md:w-60 md:border-b-0 md:border-r">
       <div class="flex items-center gap-2 border-b px-4 py-4">
-        <div class="flex size-8 items-center justify-center rounded-md bg-primary text-sm font-semibold text-primary-foreground">
-          {{ auth.user?.establishment?.name?.charAt(0)?.toUpperCase() ?? 'S' }}
+        <div class="flex size-8 items-center justify-center overflow-hidden rounded-md bg-primary text-sm font-semibold text-primary-foreground">
+          <img
+            v-if="auth.user?.establishment?.logoUrl"
+            :src="auth.user.establishment.logoUrl"
+            :alt="auth.user.establishment.name"
+            class="size-full object-cover"
+          >
+          <span v-else>{{ auth.user?.establishment?.name?.charAt(0)?.toUpperCase() ?? 'S' }}</span>
         </div>
         <div class="min-w-0">
           <p class="truncate text-sm font-medium">{{ auth.user?.establishment?.name ?? 'simple-menu' }}</p>

@@ -10,9 +10,12 @@ export default defineEventHandler(async (event): Promise<EstablishmentDto> => {
     throw createError({ statusCode: 400, statusMessage: 'Dados inválidos.' })
   }
 
+  const newCoverImageUrl = parsed.data.coverImageUrl || null
+  const newLogoUrl = parsed.data.logoUrl || null
+
   const { data, error } = await client
     .from('establishments')
-    .update({ cover_image_url: parsed.data.coverImageUrl || null })
+    .update({ cover_image_url: newCoverImageUrl, logo_url: newLogoUrl })
     .eq('id', establishment.id)
     .select('*')
     .single()
@@ -20,6 +23,13 @@ export default defineEventHandler(async (event): Promise<EstablishmentDto> => {
   if (error) {
     logServerError('admin.establishment.update', error)
     throw createError({ statusCode: 500, statusMessage: 'Não foi possível atualizar o estabelecimento.' })
+  }
+
+  if (establishment.coverImageUrl && establishment.coverImageUrl !== newCoverImageUrl) {
+    await deleteProductImageIfOwned(client, establishment.coverImageUrl)
+  }
+  if (establishment.logoUrl && establishment.logoUrl !== newLogoUrl) {
+    await deleteProductImageIfOwned(client, establishment.logoUrl)
   }
 
   return toEstablishmentDto(data)

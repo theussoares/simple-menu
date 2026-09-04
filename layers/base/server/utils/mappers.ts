@@ -15,6 +15,7 @@ export function toEstablishmentDto(row: Tables<'establishments'>): Establishment
     slug: row.slug,
     segment: row.segment,
     coverImageUrl: row.cover_image_url,
+    logoUrl: row.logo_url,
   }
 }
 

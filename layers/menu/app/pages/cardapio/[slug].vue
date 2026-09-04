@@ -174,9 +174,15 @@ useHead({
       />
       <div class="relative flex flex-col items-center gap-1.5">
         <div
-          class="flex size-16 items-center justify-center rounded-2xl border-2 border-white/90 bg-primary text-lg font-bold text-primary-foreground shadow-lg sm:size-20 sm:text-2xl"
+          class="flex size-16 items-center justify-center overflow-hidden rounded-2xl border-2 border-white/90 bg-primary text-lg font-bold text-primary-foreground shadow-lg sm:size-20 sm:text-2xl"
         >
-          {{ menu.establishment.name.charAt(0).toUpperCase() }}
+          <img
+            v-if="menu.establishment.logoUrl"
+            :src="menu.establishment.logoUrl"
+            :alt="menu.establishment.name"
+            class="size-full object-cover"
+          >
+          <span v-else>{{ menu.establishment.name.charAt(0).toUpperCase() }}</span>
         </div>
         <h1
           class="text-2xl font-bold tracking-tight text-white drop-shadow-sm sm:text-3xl"

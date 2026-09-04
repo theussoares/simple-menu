@@ -1,4 +1,4 @@
-const MAX_DIMENSION = 1000
+const DEFAULT_MAX_DIMENSION = 1000
 const TARGET_MAX_BYTES = 300_000
 const QUALITY_STEPS = [0.82, 0.7, 0.6]
 
@@ -8,9 +8,9 @@ export interface OptimizedImage {
   optimizedBytes: number
 }
 
-export async function optimizeImageToWebp(file: File): Promise<OptimizedImage> {
+export async function optimizeImageToWebp(file: File, maxDimension = DEFAULT_MAX_DIMENSION): Promise<OptimizedImage> {
   const bitmap = await createImageBitmap(file)
-  const scale = Math.min(1, MAX_DIMENSION / Math.max(bitmap.width, bitmap.height))
+  const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height))
   const width = Math.round(bitmap.width * scale)
   const height = Math.round(bitmap.height * scale)
 
