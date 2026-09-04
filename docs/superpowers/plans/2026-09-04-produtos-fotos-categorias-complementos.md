@@ -19,6 +19,14 @@
 - RLS: sempre uma policy por operação (`select`/`insert`/`update`/`delete`), nunca `for all` — segue o padrão da migration existente.
 - Limitação aceita conscientemente: se o lojista fizer upload de uma foto e cancelar o dialog sem salvar o produto, o arquivo fica no storage (órfão). Não vamos construir limpeza para esse caso — só para troca/exclusão de produto, que é o caminho comum.
 
+### Drift descoberto no pre-flight scan (2026-09-04)
+
+O worktree nativo foi criado a partir de `origin/<default-branch>`, que tinha 3 commits além do que o spec original leu: preço promocional (`promoPrice`/`promo_price`) e destaque (`isFeatured`/`is_featured`) em produtos, capa do estabelecimento (`coverImageUrl`/`cover_image_url`), um redesign completo do cardápio público (busca, chips de categoria, carrossel de destaques, dialog de detalhe do produto, categorias colapsáveis) e um plugin `layers/base/app/plugins/register-primitives.ts` que registra `Dialog`/`AlertDialog`/`DialogTrigger`/`DialogClose`/`AlertDialogTrigger` como componentes globais (por isso esses componentes não são mais importados explicitamente nos dialogs existentes).
+
+**Ruling:** todo o código deste plano foi revisado para somar-se a esse trabalho, não substituí-lo — nenhuma task deve remover `promoPrice`, `isFeatured`, `coverImageUrl`, ou qualquer peça do redesign do cardápio público. Os blocos de código abaixo já refletem essa fusão. Onde uma task cria um dialog novo (`Dialog`/`AlertDialog` como raiz), ele NÃO importa `Dialog`/`AlertDialog` explicitamente — são globais via o plugin. `Tabs` (Task 10) é adicionado a esse mesmo plugin pelo mesmo motivo.
+
+Também notado, mas fora do escopo deste plano: não existe migration para `is_featured`/`promo_price`/`cover_image_url` em `supabase/migrations/` (só a migration inicial existe), embora o código já dependa dessas colunas — sinal de que elas foram adicionadas fora do fluxo de migration versionada. Não corrigimos isso aqui; é um gap pré-existente e alheio a este plano.
+
 ---
 
 ### Task 1: Migration — categorias e grupos de complemento
@@ -329,6 +337,7 @@ export type Database = {
     Tables: {
       establishments: {
         Row: {
+          cover_image_url: string | null
           created_at: string
           id: string
           name: string
@@ -338,6 +347,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cover_image_url?: string | null
           created_at?: string
           id?: string
           name: string
@@ -347,6 +357,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cover_image_url?: string | null
           created_at?: string
           id?: string
           name?: string
@@ -402,8 +413,10 @@ export type Database = {
           id: string
           image_url: string | null
           is_active: boolean
+          is_featured: boolean
           name: string
           price: number
+          promo_price: number | null
           sort_order: number
           updated_at: string
         }
@@ -416,8 +429,10 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          is_featured?: boolean
           name: string
           price: number
+          promo_price?: number | null
           sort_order?: number
           updated_at?: string
         }
@@ -430,8 +445,10 @@ export type Database = {
           id?: string
           image_url?: string | null
           is_active?: boolean
+          is_featured?: boolean
           name?: string
           price?: number
+          promo_price?: number | null
           sort_order?: number
           updated_at?: string
         }
@@ -641,6 +658,7 @@ export interface EstablishmentDto {
   name: string
   slug: string
   segment: string | null
+  coverImageUrl: string | null
 }
 
 export interface CategoryDto {
@@ -675,10 +693,12 @@ export interface ProductDto {
   name: string
   description: string | null
   price: number
+  promoPrice: number | null
   cost: number | null
   categoryId: string | null
   imageUrl: string | null
   isActive: boolean
+  isFeatured: boolean
   sortOrder: number
   complementGroupIds: string[]
   createdAt: string
@@ -708,8 +728,10 @@ export interface PublicMenuProductDto {
   name: string
   description: string | null
   price: number
+  promoPrice: number | null
   category: PublicMenuCategoryDto | null
   imageUrl: string | null
+  isFeatured: boolean
   complementGroups: PublicMenuComplementGroupDto[]
 }
 
@@ -781,20 +803,29 @@ export const complementGroupIdParamSchema = z.object({
 
 - [ ] **Step 6: Editar `shared/schemas/product.schema.ts`**
 
+Preserva `promoPrice`/`isFeatured` e o `.refine` de preço promocional já existentes (de um redesign recente do cardápio) — só troca `category` (texto livre) por `categoryId` e soma `complementGroupIds`.
+
 ```ts
 import { z } from 'zod'
 
-export const productSchema = z.object({
-  name: z.string().trim().min(2).max(120),
-  description: z.string().trim().max(500).optional().or(z.literal('')),
-  price: z.coerce.number().min(0).max(1_000_000),
-  cost: z.coerce.number().min(0).max(1_000_000).optional().nullable(),
-  categoryId: z.string().uuid().nullable().default(null),
-  imageUrl: z.string().trim().url().max(2048).optional().or(z.literal('')),
-  isActive: z.boolean().default(true),
-  sortOrder: z.coerce.number().int().min(0).max(100_000).default(0),
-  complementGroupIds: z.array(z.string().uuid()).default([]),
-})
+export const productSchema = z
+  .object({
+    name: z.string().trim().min(2).max(120),
+    description: z.string().trim().max(500).optional().or(z.literal('')),
+    price: z.coerce.number().min(0).max(1_000_000),
+    promoPrice: z.coerce.number().min(0).max(1_000_000).optional().nullable(),
+    cost: z.coerce.number().min(0).max(1_000_000).optional().nullable(),
+    categoryId: z.string().uuid().nullable().default(null),
+    imageUrl: z.string().trim().url().max(2048).optional().or(z.literal('')),
+    isActive: z.boolean().default(true),
+    isFeatured: z.boolean().default(false),
+    sortOrder: z.coerce.number().int().min(0).max(100_000).default(0),
+    complementGroupIds: z.array(z.string().uuid()).default([]),
+  })
+  .refine((data) => data.promoPrice == null || data.promoPrice < data.price, {
+    message: 'O preço promocional deve ser menor que o preço normal.',
+    path: ['promoPrice'],
+  })
 
 export type ProductInput = z.infer<typeof productSchema>
 
@@ -825,15 +856,33 @@ git commit -m "Update shared types and schemas for categories and complement gro
 - Create: `layers/base/server/utils/product-complement-groups.ts`
 
 **Interfaces:**
-- Consumes: `Tables`, `ComplementGroupRowWithOptions`, `ProductRowWithMenuRelations` de `#shared/types/database.types` e `#shared/types/database-relations`; `CategoryDto`, `ComplementGroupDto`, `ProductDto`, `PublicMenuProductDto` de `#shared/types/domain`.
-- Produces: `toProductDto(row, complementGroupIds)`, `toPublicMenuProductDto(row)`, `toCategoryDto(row)`, `toComplementGroupDto(row)`, `deleteProductImageIfOwned(client, imageUrl)`, `extractProductImagePath(imageUrl)`, `syncProductComplementGroups(client, establishmentId, productId, requestedGroupIds)`.
+- Consumes: `Tables`, `ComplementGroupRowWithOptions`, `ProductRowWithMenuRelations` de `#shared/types/database.types` e `#shared/types/database-relations`; `CategoryDto`, `ComplementGroupDto`, `EstablishmentDto`, `ProductDto`, `PublicMenuProductDto` de `#shared/types/domain`.
+- Produces: `toEstablishmentDto(row)` (preservada, já existia), `toProductDto(row, complementGroupIds)`, `toPublicMenuProductDto(row)`, `toCategoryDto(row)`, `toComplementGroupDto(row)`, `deleteProductImageIfOwned(client, imageUrl)`, `extractProductImagePath(imageUrl)`, `syncProductComplementGroups(client, establishmentId, productId, requestedGroupIds)`.
 
 - [ ] **Step 1: Reescrever `layers/base/server/utils/mappers.ts`**
+
+Preserva `toEstablishmentDto` e os campos `promoPrice`/`isFeatured` já existentes neste arquivo (de um redesign recente do cardápio) — só soma `categoryId`/`complementGroupIds`/`category`/`complementGroups` e as duas novas funções de mapper.
 
 ```ts
 import type { Tables } from '#shared/types/database.types'
 import type { ComplementGroupRowWithOptions, ProductRowWithMenuRelations } from '#shared/types/database-relations'
-import type { CategoryDto, ComplementGroupDto, ProductDto, PublicMenuProductDto } from '#shared/types/domain'
+import type {
+  CategoryDto,
+  ComplementGroupDto,
+  EstablishmentDto,
+  ProductDto,
+  PublicMenuProductDto,
+} from '#shared/types/domain'
+
+export function toEstablishmentDto(row: Tables<'establishments'>): EstablishmentDto {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    segment: row.segment,
+    coverImageUrl: row.cover_image_url,
+  }
+}
 
 export function toProductDto(row: Tables<'products'>, complementGroupIds: string[]): ProductDto {
   return {
@@ -842,10 +891,12 @@ export function toProductDto(row: Tables<'products'>, complementGroupIds: string
     name: row.name,
     description: row.description,
     price: Number(row.price),
+    promoPrice: row.promo_price === null ? null : Number(row.promo_price),
     cost: row.cost === null ? null : Number(row.cost),
     categoryId: row.category_id,
     imageUrl: row.image_url,
     isActive: row.is_active,
+    isFeatured: row.is_featured,
     sortOrder: row.sort_order,
     complementGroupIds,
     createdAt: row.created_at,
@@ -859,8 +910,10 @@ export function toPublicMenuProductDto(row: ProductRowWithMenuRelations): Public
     name: row.name,
     description: row.description,
     price: Number(row.price),
+    promoPrice: row.promo_price === null ? null : Number(row.promo_price),
     category: row.categories ? { id: row.categories.id, name: row.categories.name } : null,
     imageUrl: row.image_url,
+    isFeatured: row.is_featured,
     complementGroups: row.product_complement_groups
       .map((link) => link.complement_groups)
       .map((group) => ({
@@ -1527,10 +1580,12 @@ export default defineEventHandler(async (event): Promise<ProductDto> => {
       name: input.name,
       description: input.description || null,
       price: input.price,
+      promo_price: input.promoPrice ?? null,
       cost: input.cost ?? null,
       category_id: input.categoryId,
       image_url: input.imageUrl || null,
       is_active: input.isActive,
+      is_featured: input.isFeatured,
       sort_order: input.sortOrder,
     })
     .select('*')
@@ -1590,10 +1645,12 @@ export default defineEventHandler(async (event): Promise<ProductDto> => {
       name: input.name,
       description: input.description || null,
       price: input.price,
+      promo_price: input.promoPrice ?? null,
       cost: input.cost ?? null,
       category_id: input.categoryId,
       image_url: input.imageUrl || null,
       is_active: input.isActive,
+      is_featured: input.isFeatured,
       sort_order: input.sortOrder,
     })
     .eq('id', params.data.id)
@@ -1687,8 +1744,8 @@ git commit -m "Wire product routes to categories, complement groups, and image c
 - Modify: `layers/menu/server/api/menu/[slug].get.ts`
 
 **Interfaces:**
-- Consumes: `toPublicMenuProductDto` (auto-importado), `ProductRowWithMenuRelations` de `#shared/types/database-relations`.
-- Produces: `PublicMenuDto` com `category`/`complementGroups` populados, produtos ordenados por categoria e depois por produto.
+- Consumes: `toPublicMenuProductDto`/`toEstablishmentDto` (auto-importados), `ProductRowWithMenuRelations` de `#shared/types/database-relations`.
+- Produces: `PublicMenuDto` com `category`/`complementGroups` populados, produtos ordenados por categoria e depois por produto. `promoPrice`/`isFeatured` e o banner (`establishment.coverImageUrl`) continuam vindo normalmente — nenhum deles depende de mudança nesta rota, só precisam sobreviver à reescrita.
 
 - [ ] **Step 1: Reescrever a rota**
 
@@ -1714,7 +1771,7 @@ export default defineEventHandler(async (event): Promise<PublicMenuDto> => {
 
   const { data: establishment, error: establishmentError } = await client
     .from('establishments')
-    .select('id, name, slug, segment')
+    .select('*')
     .eq('slug', params.data.slug)
     .maybeSingle()
 
@@ -1755,7 +1812,7 @@ export default defineEventHandler(async (event): Promise<PublicMenuDto> => {
   })
 
   return {
-    establishment,
+    establishment: toEstablishmentDto(establishment),
     products: sorted.map(toPublicMenuProductDto),
   }
 })
@@ -1785,9 +1842,12 @@ git commit -m "Include category and complement groups in the public menu respons
 - Create: `layers/base/app/components/ui/tabs/index.ts`
 - Create: `layers/base/app/components/ui/checkbox/Checkbox.vue`
 - Create: `layers/base/app/components/ui/checkbox/index.ts`
+- Modify: `layers/base/app/plugins/register-primitives.ts`
 
 **Interfaces:**
-- Produces: `<Tabs>` (import explícito de `#layers/base/app/components/ui/tabs`), `<TabsList>`/`<TabsTrigger>`/`<TabsContent>`/`<Checkbox>` (auto-importados por nome de arquivo, mesmo padrão de `Switch.vue`).
+- Produces: `<Tabs>` (registrado globalmente pelo plugin, igual `<Dialog>`/`<AlertDialog>` — sem import explícito), `<TabsList>`/`<TabsTrigger>`/`<TabsContent>`/`<Checkbox>` (auto-importados por nome de arquivo, mesmo padrão de `Switch.vue`).
+
+Um plugin `register-primitives.ts` já existe neste repo (de um fix recente) registrando `Dialog`/`DialogTrigger`/`DialogClose`/`AlertDialog`/`AlertDialogTrigger` como componentes globais via `app.component()`, porque esses primitivos são re-exports de `reka-ui` sem arquivo `.vue` próprio — o auto-import de componentes do Nuxt só escaneia arquivos `.vue`, então usá-los sem import explícito renderiza um elemento inerte em produção. `Tabs` (aliás de `TabsRoot`, também sem arquivo próprio) tem exatamente o mesmo problema — por isso este plugin ganha uma linha extra em vez de a Task 15 importar `Tabs` manualmente.
 
 - [ ] **Step 1: `TabsList.vue`**
 
@@ -1904,15 +1964,41 @@ const forwarded = useForwardPropsEmits(props, emits)
 export { default as Checkbox } from './Checkbox.vue'
 ```
 
-- [ ] **Step 7: Typecheck**
+- [ ] **Step 7: Registrar `Tabs` no plugin `register-primitives.ts`**
+
+Adicione `TabsRoot` à lista de imports de `reka-ui` e registre-o como `'Tabs'`, ao lado das linhas já existentes para `Dialog`/`AlertDialog` — não remova nem reordene as linhas atuais.
+
+```ts
+import { AlertDialogRoot, AlertDialogTrigger, DialogClose, DialogRoot, DialogTrigger, TabsRoot } from 'reka-ui'
+
+/**
+ * Nuxt's component auto-import only scans .vue files, so re-exported
+ * primitives (Dialog/AlertDialog root + trigger/close, aliased from
+ * reka-ui in dialog/index.ts and alert-dialog/index.ts) never become
+ * global components on their own - templates using <Dialog> etc. without
+ * an explicit import silently render an inert custom element. Registering
+ * them here makes them resolvable everywhere, matching how every other
+ * ui/ component already behaves.
+ */
+export default defineNuxtPlugin((nuxtApp) => {
+  nuxtApp.vueApp.component('Dialog', DialogRoot)
+  nuxtApp.vueApp.component('DialogTrigger', DialogTrigger)
+  nuxtApp.vueApp.component('DialogClose', DialogClose)
+  nuxtApp.vueApp.component('AlertDialog', AlertDialogRoot)
+  nuxtApp.vueApp.component('AlertDialogTrigger', AlertDialogTrigger)
+  nuxtApp.vueApp.component('Tabs', TabsRoot)
+})
+```
+
+- [ ] **Step 8: Typecheck**
 
 Run: `pnpm exec nuxt typecheck`
-Expected: sem erros novos nos arquivos criados.
+Expected: sem erros novos nos arquivos criados ou modificados.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 9: Commit**
 
 ```bash
-git add layers/base/app/components/ui/tabs layers/base/app/components/ui/checkbox
+git add layers/base/app/components/ui/tabs layers/base/app/components/ui/checkbox layers/base/app/plugins/register-primitives.ts
 git commit -m "Add Tabs and Checkbox UI primitives"
 ```
 
@@ -1985,9 +2071,10 @@ export const useCategoriesStore = defineStore('admin-categories', {
 
 - [ ] **Step 2: `CategoryFormDialog.vue`**
 
+`Dialog`/`DialogContent`/etc. não são importados — `Dialog` é registrado globalmente pelo plugin `register-primitives.ts` (ver Task 10), e `DialogContent`/`DialogHeader`/`DialogTitle`/`DialogDescription`/`DialogFooter` são auto-importados por serem arquivos `.vue` próprios.
+
 ```vue
 <script setup lang="ts">
-import { Dialog } from "#layers/base/app/components/ui/dialog";
 import { toast } from "#layers/base/app/components/ui/sonner";
 import { categorySchema } from "#shared/schemas/category.schema";
 import type { CategoryDto } from "#shared/types/domain";
@@ -2078,9 +2165,10 @@ async function onSubmit() {
 
 - [ ] **Step 3: `DeleteCategoryDialog.vue`**
 
+`AlertDialog` também é global via o plugin — sem import explícito, mesmo padrão de `DeleteProductDialog.vue`.
+
 ```vue
 <script setup lang="ts">
-import { AlertDialog } from "#layers/base/app/components/ui/alert-dialog";
 import { toast } from "#layers/base/app/components/ui/sonner";
 import type { CategoryDto } from "#shared/types/domain";
 
@@ -2301,10 +2389,11 @@ export const useComplementGroupsStore = defineStore('admin-complement-groups', {
 
 - [ ] **Step 2: `ComplementGroupFormDialog.vue`**
 
+`Dialog` é global via o plugin (Task 10) — sem import explícito.
+
 ```vue
 <script setup lang="ts">
 import { Plus, Trash2 } from "@lucide/vue";
-import { Dialog } from "#layers/base/app/components/ui/dialog";
 import { toast } from "#layers/base/app/components/ui/sonner";
 import { complementGroupSchema } from "#shared/schemas/complement-group.schema";
 import type { ComplementGroupDto } from "#shared/types/domain";
@@ -2461,9 +2550,10 @@ async function onSubmit() {
 
 - [ ] **Step 3: `DeleteComplementGroupDialog.vue`**
 
+`AlertDialog` é global via o plugin — sem import explícito.
+
 ```vue
 <script setup lang="ts">
-import { AlertDialog } from "#layers/base/app/components/ui/alert-dialog";
 import { toast } from "#layers/base/app/components/ui/sonner";
 import type { ComplementGroupDto } from "#shared/types/domain";
 
@@ -2826,9 +2916,10 @@ git commit -m "Add client-side image optimization and upload component"
 
 - [ ] **Step 1: Reescrever o arquivo**
 
+Preserva `promoPrice` e `isFeatured` (campos "Preço promocional" e "Destacar no cardápio" já existentes, de um redesign recente) — soma upload de imagem, categoria com criação inline e complementos. `Dialog` é global via o plugin `register-primitives.ts` (Task 10) — sem import explícito.
+
 ```vue
 <script setup lang="ts">
-import { Dialog } from "#layers/base/app/components/ui/dialog";
 import { toast } from "#layers/base/app/components/ui/sonner";
 import { productSchema } from "#shared/schemas/product.schema";
 import type { ProductDto } from "#shared/types/domain";
@@ -2847,10 +2938,12 @@ const form = reactive({
   name: "",
   description: "",
   price: "" as number | string,
+  promoPrice: "" as number | string,
   cost: "" as number | string,
   categoryId: null as string | null,
   imageUrl: "",
   isActive: true,
+  isFeatured: false,
   sortOrder: 0,
   complementGroupIds: [] as string[],
 });
@@ -2865,10 +2958,12 @@ function resetForm() {
   form.name = product?.name ?? "";
   form.description = product?.description ?? "";
   form.price = product?.price ?? "";
+  form.promoPrice = product?.promoPrice ?? "";
   form.cost = product?.cost ?? "";
   form.categoryId = product?.categoryId ?? null;
   form.imageUrl = product?.imageUrl ?? "";
   form.isActive = product?.isActive ?? true;
+  form.isFeatured = product?.isFeatured ?? false;
   form.sortOrder = product?.sortOrder ?? 0;
   form.complementGroupIds = product?.complementGroupIds ?? [];
   errorMessage.value = "";
@@ -2908,6 +3003,7 @@ async function onSubmit() {
   const parsed = productSchema.safeParse({
     ...form,
     cost: form.cost === "" ? null : form.cost,
+    promoPrice: form.promoPrice === "" ? null : form.promoPrice,
   });
   if (!parsed.success) {
     errorMessage.value = parsed.error.issues[0]?.message ?? "Verifique os campos do formulário.";
@@ -2965,6 +3061,12 @@ async function onSubmit() {
         </div>
 
         <div class="space-y-1.5">
+          <Label for="product-promo-price">Preço promocional (R$, opcional)</Label>
+          <Input id="product-promo-price" v-model="form.promoPrice" type="number" min="0" step="0.01" placeholder="Deixe em branco para não usar" />
+          <p class="text-xs text-muted-foreground">Aparece riscado no preço normal, como uma oferta.</p>
+        </div>
+
+        <div class="space-y-1.5">
           <Label for="product-category">Categoria</Label>
           <select
             id="product-category"
@@ -3006,6 +3108,14 @@ async function onSubmit() {
             <p class="text-xs text-muted-foreground">Produtos indisponíveis ficam ocultos para os clientes.</p>
           </div>
           <Switch v-model="form.isActive" />
+        </div>
+
+        <div class="flex items-center justify-between rounded-md border px-3 py-2">
+          <div>
+            <p class="text-sm font-medium">Destacar no cardápio</p>
+            <p class="text-xs text-muted-foreground">Aparece na vitrine de destaques, no topo do cardápio.</p>
+          </div>
+          <Switch v-model="form.isFeatured" />
         </div>
 
         <p v-if="errorMessage" class="text-sm text-destructive">{{ errorMessage }}</p>
@@ -3117,11 +3227,22 @@ function categoryName(product: ProductDto) {
           <TableBody>
             <TableRow v-for="product in store.items" :key="product.id">
               <TableCell>
-                <p class="font-medium">{{ product.name }}</p>
+                <div class="flex items-center gap-2">
+                  <p class="font-medium">{{ product.name }}</p>
+                  <Badge v-if="product.isFeatured" variant="outline">Destaque</Badge>
+                </div>
                 <p v-if="product.description" class="line-clamp-1 text-xs text-muted-foreground">{{ product.description }}</p>
               </TableCell>
               <TableCell class="text-muted-foreground">{{ categoryName(product) }}</TableCell>
-              <TableCell>{{ formatCurrency(product.price) }}</TableCell>
+              <TableCell>
+                <template v-if="product.promoPrice">
+                  <span class="text-muted-foreground line-through">{{ formatCurrency(product.price) }}</span>
+                  <span class="ml-1 font-medium text-primary">{{ formatCurrency(product.promoPrice) }}</span>
+                </template>
+                <template v-else>
+                  {{ formatCurrency(product.price) }}
+                </template>
+              </TableCell>
               <TableCell>
                 <Badge :variant="product.isActive ? 'success' : 'secondary'">
                   {{ product.isActive ? 'Ativo' : 'Inativo' }}
@@ -3151,10 +3272,12 @@ function categoryName(product: ProductDto) {
 
 - [ ] **Step 2: Reescrever `produtos/index.vue`**
 
+`Tabs` é global via o plugin (Task 10) — só `TabsList`/`TabsContent`/`TabsTrigger` (arquivos `.vue` próprios) precisam de import.
+
 ```vue
 <script setup lang="ts">
 import { QrCode } from '@lucide/vue'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '#layers/base/app/components/ui/tabs'
+import { TabsContent, TabsList, TabsTrigger } from '#layers/base/app/components/ui/tabs'
 
 definePageMeta({
   middleware: ['auth', 'has-establishment'],
@@ -3238,105 +3361,102 @@ git commit -m "Restructure the produtos page into Produtos/Categorias/Complement
 **Interfaces:**
 - Consumes: `PublicMenuProductDto.category`/`complementGroups` (Task 3/9).
 
-- [ ] **Step 1: Reescrever o arquivo**
+Este arquivo já foi redesenhado recentemente (busca, chips de categoria, carrossel de destaques, categorias colapsáveis com `IntersectionObserver`, dialog de detalhe do produto, banner de capa) — **não é uma reescrita do zero**. São 3 mudanças pontuais sobre o arquivo atual:
+1. `product.category` deixou de ser `string | null` e passou a ser `{ id, name } | null` — todo lugar que lia `product.category` como texto agora lê `product.category?.name` (ou `?.name` no caso do `selectedProduct` no dialog).
+2. O dialog de detalhe do produto ganha uma seção listando os grupos de complemento do produto (nome + opções com preço adicional), como bloco informativo — sem interação de escolha, já que não há carrinho.
+3. Nada do que já existe (busca, destaques, categorias colapsáveis, observer, banner) é removido.
 
-```vue
-<script setup lang="ts">
-import type { PublicMenuDto } from '#shared/types/domain'
+- [ ] **Step 1: Editar o `<script setup>`**
 
-definePageMeta({ layout: false })
+Troque as duas linhas que leem `product.category` como texto:
 
-const route = useRoute()
-const slug = String(route.params.slug)
-const menuEndpoint: string = `/api/menu/${slug}`
-
-const { data: menu, error } = await useAsyncData<PublicMenuDto>(`menu-${slug}`, () => $fetch<PublicMenuDto>(menuEndpoint))
-
-if (error.value) {
-  throw createError({
-    statusCode: error.value.statusCode ?? 500,
-    statusMessage: 'Cardápio não encontrado.',
-    fatal: true,
-  })
-}
-
-const categories = computed(() => {
-  const products = menu.value?.products ?? []
-  const groups = new Map<string, typeof products>()
-
-  for (const product of products) {
+```ts
+// Em `categories` (computed):
+// antes:
+    const key = product.category?.trim() || 'Cardápio'
+// depois:
     const key = product.category?.name ?? 'Cardápio'
-    if (!groups.has(key)) groups.set(key, [])
-    groups.get(key)!.push(product)
-  }
-
-  return Array.from(groups.entries())
-})
-
-useHead({
-  title: menu.value ? `${menu.value.establishment.name} · Cardápio` : 'Cardápio',
-})
-</script>
-
-<template>
-  <main v-if="menu" class="mx-auto min-h-svh max-w-lg bg-background pb-16">
-    <header class="border-b bg-secondary/40 px-5 py-6 text-center">
-      <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">Cardápio digital</p>
-      <h1 class="text-2xl font-semibold tracking-tight">{{ menu.establishment.name }}</h1>
-    </header>
-
-    <div v-if="menu.products.length === 0" class="px-5 py-16 text-center text-sm text-muted-foreground">
-      Nenhum item disponível no momento.
-    </div>
-
-    <section v-for="[category, products] in categories" :key="category" class="px-5 pt-6">
-      <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">{{ category }}</h2>
-      <ul class="space-y-3">
-        <li v-for="product in products" :key="product.id" class="flex gap-3 rounded-lg border bg-card p-3">
-          <img
-            v-if="product.imageUrl"
-            :src="product.imageUrl"
-            :alt="product.name"
-            class="size-16 shrink-0 rounded-md object-cover"
-            loading="lazy"
-          >
-          <div class="min-w-0 flex-1">
-            <div class="flex items-start justify-between gap-2">
-              <p class="font-medium leading-snug">{{ product.name }}</p>
-              <p class="shrink-0 font-semibold text-primary">{{ formatCurrency(product.price) }}</p>
-            </div>
-            <p v-if="product.description" class="mt-1 text-sm text-muted-foreground">{{ product.description }}</p>
-            <div v-if="product.complementGroups.length > 0" class="mt-2 space-y-1">
-              <div v-for="group in product.complementGroups" :key="group.id" class="text-xs">
-                <p class="font-medium text-foreground">
-                  {{ group.name }}<span v-if="group.isRequired" class="text-muted-foreground"> (obrigatório)</span>
-                </p>
-                <p class="text-muted-foreground">
-                  <span v-for="(option, index) in group.options" :key="option.id">
-                    {{ option.name }}<template v-if="option.priceDelta > 0"> (+{{ formatCurrency(option.priceDelta) }})</template>{{ index < group.options.length - 1 ? ' · ' : '' }}
-                  </span>
-                </p>
-              </div>
-            </div>
-          </div>
-        </li>
-      </ul>
-    </section>
-  </main>
-</template>
 ```
 
-- [ ] **Step 2: Verificar manualmente**
+```ts
+// Em `allCategoryNames` (computed):
+// antes:
+    names.add(product.category?.trim() || 'Cardápio')
+// depois:
+    names.add(product.category?.name ?? 'Cardápio')
+```
+
+Todo o resto do `<script setup>` (normalize, categorySlug, searchQuery, filteredProducts, featuredProducts, collapsedCategories, toggleCategory, activeCategory/observer, scrollToCategory, selectedProduct/detailOpen/openDetail, useHead) fica exatamente como está — eles já trabalham só com o nome (string) da categoria, que continua sendo uma string depois da mudança acima.
+
+- [ ] **Step 2: Editar o dialog de detalhe do produto**
+
+Ache este bloco dentro do `<template>` (dentro de `<Dialog v-model:open="detailOpen">`):
+
+```vue
+          <DialogHeader class="space-y-1 text-left">
+            <DialogTitle>{{ selectedProduct.name }}</DialogTitle>
+            <p v-if="selectedProduct.category" class="text-xs uppercase tracking-wide text-muted-foreground">
+              {{ selectedProduct.category }}
+            </p>
+          </DialogHeader>
+          <p v-if="selectedProduct.description" class="text-sm text-muted-foreground">
+            {{ selectedProduct.description }}
+          </p>
+          <div class="flex items-baseline gap-2 pt-1">
+            <p v-if="selectedProduct.promoPrice" class="text-sm text-muted-foreground line-through">
+              {{ formatCurrency(selectedProduct.price) }}
+            </p>
+            <p class="text-xl font-semibold text-primary">
+              {{ formatCurrency(selectedProduct.promoPrice ?? selectedProduct.price) }}
+            </p>
+          </div>
+```
+
+Substitua por (só troca `selectedProduct.category` por `selectedProduct.category.name`, e soma o bloco de complementos ao final):
+
+```vue
+          <DialogHeader class="space-y-1 text-left">
+            <DialogTitle>{{ selectedProduct.name }}</DialogTitle>
+            <p v-if="selectedProduct.category" class="text-xs uppercase tracking-wide text-muted-foreground">
+              {{ selectedProduct.category.name }}
+            </p>
+          </DialogHeader>
+          <p v-if="selectedProduct.description" class="text-sm text-muted-foreground">
+            {{ selectedProduct.description }}
+          </p>
+          <div class="flex items-baseline gap-2 pt-1">
+            <p v-if="selectedProduct.promoPrice" class="text-sm text-muted-foreground line-through">
+              {{ formatCurrency(selectedProduct.price) }}
+            </p>
+            <p class="text-xl font-semibold text-primary">
+              {{ formatCurrency(selectedProduct.promoPrice ?? selectedProduct.price) }}
+            </p>
+          </div>
+          <div v-if="selectedProduct.complementGroups.length > 0" class="space-y-2 border-t pt-3">
+            <div v-for="group in selectedProduct.complementGroups" :key="group.id" class="text-sm">
+              <p class="font-medium text-foreground">
+                {{ group.name }}<span v-if="group.isRequired" class="text-muted-foreground"> (obrigatório)</span>
+              </p>
+              <p class="text-muted-foreground">
+                <span v-for="(option, index) in group.options" :key="option.id">
+                  {{ option.name }}<template v-if="option.priceDelta > 0"> (+{{ formatCurrency(option.priceDelta) }})</template>{{ index < group.options.length - 1 ? ' · ' : '' }}
+                </span>
+              </p>
+            </div>
+          </div>
+```
+
+- [ ] **Step 3: Verificar manualmente**
 
 Acesse `/cardapio/<slug>` de um estabelecimento com produtos em categorias diferentes e ao menos um produto com grupo de complemento vinculado.
 
-Expected: seções aparecem na ordem de `sortOrder` das categorias; produtos sem categoria caem em "Cardápio"; o produto com complemento mostra o grupo e as opções com o preço adicional formatado em R$.
+Expected: busca, chips de categoria, carrossel de destaques e preço promocional continuam funcionando exatamente como antes; ao abrir o detalhe de um produto com categoria, o nome da categoria aparece (não `[object Object]`); um produto com complemento mostra o grupo e as opções com o preço adicional formatado em R$ no dialog de detalhe.
 
-- [ ] **Step 3: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
 git add layers/menu/app/pages/cardapio/[slug].vue
-git commit -m "Show category grouping and complement groups on the public menu"
+git commit -m "Adapt public menu to the category entity and show complement groups in product detail"
 ```
 
 ---

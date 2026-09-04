@@ -34,7 +34,7 @@ export default defineEventHandler(async (event): Promise<EstablishmentDto> => {
       slug,
       segment: parsed.data.segment || null,
     })
-    .select('id, name, slug, segment')
+    .select('*')
     .single()
 
   if (error) {
@@ -46,5 +46,5 @@ export default defineEventHandler(async (event): Promise<EstablishmentDto> => {
     throw createError({ statusCode: 500, statusMessage })
   }
 
-  return data
+  return toEstablishmentDto(data)
 })
