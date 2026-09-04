@@ -44,7 +44,7 @@ function resetForm() {
   form.isActive = product?.isActive ?? true
   form.isFeatured = product?.isFeatured ?? false
   form.sortOrder = product?.sortOrder ?? 0
-  form.complementGroupIds = product?.complementGroupIds ?? []
+  form.complementGroupIds = [...(product?.complementGroupIds ?? [])]
   errorMessage.value = ''
   creatingCategory.value = false
   newCategoryName.value = ''
