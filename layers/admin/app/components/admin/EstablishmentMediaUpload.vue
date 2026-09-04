@@ -80,11 +80,11 @@ async function onFileSelected(event: Event) {
 <template>
   <div class="space-y-2">
     <Label>{{ label }}</Label>
-    <div class="flex items-center gap-4">
+    <div :class="shape === 'banner' ? 'space-y-3' : 'flex items-center gap-4'">
       <button
         type="button"
-        class="relative shrink-0 overflow-hidden border border-dashed border-input bg-muted/40 transition-colors hover:bg-muted disabled:pointer-events-none"
-        :class="shape === 'banner' ? 'aspect-[21/9] w-full max-w-sm rounded-md' : 'flex size-24 items-center justify-center rounded-2xl'"
+        class="relative overflow-hidden border border-dashed border-input bg-muted/40 transition-colors hover:bg-muted disabled:pointer-events-none"
+        :class="shape === 'banner' ? 'aspect-[21/9] w-full max-w-sm rounded-md' : 'flex size-24 shrink-0 items-center justify-center rounded-2xl'"
         :disabled="uploading"
         @click="openFilePicker"
       >

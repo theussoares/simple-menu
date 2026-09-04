@@ -463,14 +463,12 @@ useHead({
         hide-close
         :class="
           cn(
-            'fixed inset-x-0 bottom-0 top-auto left-0 z-50 flex max-h-[88vh] w-full translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-t-3xl border-0 bg-background p-0 shadow-2xl duration-300',
-            'data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom',
-            'sm:inset-0 sm:left-1/2 sm:top-1/2 sm:bottom-auto sm:h-auto sm:max-h-[85vh] sm:w-full sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border',
-            'sm:data-[state=open]:zoom-in-95 sm:data-[state=closed]:zoom-out-95 sm:data-[state=open]:slide-in-from-bottom-0 sm:data-[state=closed]:slide-out-to-bottom-0',
+            'fixed inset-0 top-0 left-0 z-50 flex h-full max-h-full w-full translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden border-0 bg-background p-0 shadow-2xl duration-300',
+            'sm:left-1/2 sm:top-1/2 sm:h-auto sm:max-h-[85vh] sm:w-full sm:max-w-md sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-2xl sm:border',
           )
         "
       >
-        <div class="relative h-60 shrink-0 overflow-hidden bg-muted sm:h-56">
+        <div class="relative h-72 shrink-0 overflow-hidden bg-muted sm:h-56">
           <img
             v-if="selectedProduct.imageUrl"
             :src="selectedProduct.imageUrl"
