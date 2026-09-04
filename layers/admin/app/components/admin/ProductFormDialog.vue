@@ -10,6 +10,8 @@ const props = defineProps<{
 const open = defineModel<boolean>({ default: false })
 
 const store = useProductsStore()
+const categoriesStore = useCategoriesStore()
+const complementGroupsStore = useComplementGroupsStore()
 
 const form = reactive({
   name: '',
@@ -17,15 +19,18 @@ const form = reactive({
   price: '' as number | string,
   promoPrice: '' as number | string,
   cost: '' as number | string,
-  category: '',
+  categoryId: null as string | null,
   imageUrl: '',
   isActive: true,
   isFeatured: false,
   sortOrder: 0,
+  complementGroupIds: [] as string[],
 })
 
 const submitting = ref(false)
 const errorMessage = ref('')
+const creatingCategory = ref(false)
+const newCategoryName = ref('')
 
 function resetForm() {
   const product = props.product
@@ -34,12 +39,15 @@ function resetForm() {
   form.price = product?.price ?? ''
   form.promoPrice = product?.promoPrice ?? ''
   form.cost = product?.cost ?? ''
-  form.category = product?.category ?? ''
+  form.categoryId = product?.categoryId ?? null
   form.imageUrl = product?.imageUrl ?? ''
   form.isActive = product?.isActive ?? true
   form.isFeatured = product?.isFeatured ?? false
   form.sortOrder = product?.sortOrder ?? 0
+  form.complementGroupIds = product?.complementGroupIds ?? []
   errorMessage.value = ''
+  creatingCategory.value = false
+  newCategoryName.value = ''
 }
 
 watch(open, (isOpen) => {
@@ -47,6 +55,29 @@ watch(open, (isOpen) => {
 })
 
 const isEditing = computed(() => Boolean(props.product))
+
+function toggleComplementGroup(groupId: string, checked: boolean) {
+  if (checked) {
+    if (!form.complementGroupIds.includes(groupId)) form.complementGroupIds.push(groupId)
+  }
+  else {
+    form.complementGroupIds = form.complementGroupIds.filter(id => id !== groupId)
+  }
+}
+
+async function onCreateCategory() {
+  const name = newCategoryName.value.trim()
+  if (!name) return
+  try {
+    const category = await categoriesStore.create({ name, sortOrder: categoriesStore.items.length })
+    form.categoryId = category.id
+    creatingCategory.value = false
+    newCategoryName.value = ''
+  }
+  catch (error) {
+    toast.error(getErrorMessage(error) ?? 'Não foi possível criar a categoria.')
+  }
+}
 
 async function onSubmit() {
   errorMessage.value = ''
@@ -92,6 +123,8 @@ async function onSubmit() {
       </DialogHeader>
 
       <form class="space-y-4" @submit.prevent="onSubmit">
+        <ProductImageUpload v-model="form.imageUrl" />
+
         <div class="space-y-1.5">
           <Label for="product-name">Nome</Label>
           <Input id="product-name" v-model="form.name" required placeholder="Ex: X-Burger" />
@@ -121,12 +154,42 @@ async function onSubmit() {
 
         <div class="space-y-1.5">
           <Label for="product-category">Categoria</Label>
-          <Input id="product-category" v-model="form.category" placeholder="Ex: Lanches" />
+          <select
+            id="product-category"
+            v-model="form.categoryId"
+            class="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm"
+          >
+            <option :value="null">Sem categoria</option>
+            <option v-for="category in categoriesStore.items" :key="category.id" :value="category.id">
+              {{ category.name }}
+            </option>
+          </select>
+
+          <Button v-if="!creatingCategory" type="button" variant="link" class="h-auto p-0 text-xs" @click="creatingCategory = true">
+            + Nova categoria
+          </Button>
+          <div v-else class="flex gap-2">
+            <Input v-model="newCategoryName" placeholder="Nome da categoria" class="flex-1" />
+            <Button type="button" size="sm" @click="onCreateCategory">
+              Criar
+            </Button>
+            <Button type="button" size="sm" variant="ghost" @click="creatingCategory = false">
+              Cancelar
+            </Button>
+          </div>
         </div>
 
-        <div class="space-y-1.5">
-          <Label for="product-image">URL da imagem (opcional)</Label>
-          <Input id="product-image" v-model="form.imageUrl" type="url" placeholder="https://..." />
+        <div v-if="complementGroupsStore.items.length > 0" class="space-y-1.5">
+          <Label>Complementos</Label>
+          <div class="space-y-2 rounded-md border p-3">
+            <div v-for="group in complementGroupsStore.items" :key="group.id" class="flex items-center gap-2">
+              <Checkbox
+                :model-value="form.complementGroupIds.includes(group.id)"
+                @update:model-value="(checked) => toggleComplementGroup(group.id, checked === true)"
+              />
+              <span class="text-sm">{{ group.name }}</span>
+            </div>
+          </div>
         </div>
 
         <div class="flex items-center justify-between rounded-md border px-3 py-2">
