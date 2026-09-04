@@ -12,11 +12,11 @@ import {
 import { X } from '@lucide/vue'
 import { cn } from '#layers/base/app/lib/utils'
 
-const props = defineProps<DialogContentProps & { class?: HTMLAttributes['class'] }>()
+const props = defineProps<DialogContentProps & { class?: HTMLAttributes['class'], hideClose?: boolean }>()
 const emits = defineEmits<DialogContentEmits>()
 
 const delegatedProps = computed(() => {
-  const { class: _, ...delegated } = props
+  const { class: _, hideClose: __, ...delegated } = props
   return delegated
 })
 
@@ -39,6 +39,7 @@ const forwarded = useForwardPropsEmits(delegatedProps, emits)
     >
       <slot />
       <DialogClose
+        v-if="!hideClose"
         class="absolute right-4 top-4 rounded-xs opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none"
       >
         <X class="size-4" />
