@@ -1,4 +1,4 @@
-import { AlertDialogRoot, AlertDialogTrigger, DialogClose, DialogRoot, DialogTrigger } from 'reka-ui'
+import { AlertDialogRoot, AlertDialogTrigger, DialogClose, DialogRoot, DialogTrigger, TabsRoot } from 'reka-ui'
 
 /**
  * Nuxt's component auto-import only scans .vue files, so re-exported
@@ -15,4 +15,5 @@ export default defineNuxtPlugin((nuxtApp) => {
   nuxtApp.vueApp.component('DialogClose', DialogClose)
   nuxtApp.vueApp.component('AlertDialog', AlertDialogRoot)
   nuxtApp.vueApp.component('AlertDialogTrigger', AlertDialogTrigger)
+  nuxtApp.vueApp.component('Tabs', TabsRoot)
 })
