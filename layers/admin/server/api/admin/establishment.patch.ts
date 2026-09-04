@@ -1,11 +1,11 @@
 import { createError, defineEventHandler, readValidatedBody } from 'h3'
-import { updateEstablishmentAppearanceSchema } from '#shared/schemas/establishment.schema'
+import { updateEstablishmentSchema } from '#shared/schemas/establishment.schema'
 import type { EstablishmentDto } from '#shared/types/domain'
 
 export default defineEventHandler(async (event): Promise<EstablishmentDto> => {
   const { client, establishment } = await requireEstablishment(event)
 
-  const parsed = await readValidatedBody(event, (body) => updateEstablishmentAppearanceSchema.safeParse(body))
+  const parsed = await readValidatedBody(event, (body) => updateEstablishmentSchema.safeParse(body))
   if (!parsed.success) {
     throw createError({ statusCode: 400, statusMessage: 'Dados inválidos.' })
   }
@@ -15,7 +15,12 @@ export default defineEventHandler(async (event): Promise<EstablishmentDto> => {
 
   const { data, error } = await client
     .from('establishments')
-    .update({ cover_image_url: newCoverImageUrl, logo_url: newLogoUrl })
+    .update({
+      name: parsed.data.name,
+      segment: parsed.data.segment || null,
+      cover_image_url: newCoverImageUrl,
+      logo_url: newLogoUrl,
+    })
     .eq('id', establishment.id)
     .select('*')
     .single()

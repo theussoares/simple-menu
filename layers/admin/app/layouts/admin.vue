@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Image, LayoutGrid, LogOut, Package, QrCode } from '@lucide/vue'
+import { LayoutGrid, LogOut, Package, QrCode, Store } from '@lucide/vue'
 import { toast } from '#layers/base/app/components/ui/sonner'
 
 const auth = useAuthStore()
@@ -7,7 +7,7 @@ const router = useRouter()
 
 const navItems = [
   { label: 'Produtos', to: '/admin/produtos', icon: Package, disabled: false },
-  { label: 'Aparência', to: '/admin/aparencia', icon: Image, disabled: false },
+  { label: 'Estabelecimento', to: '/admin/estabelecimento', icon: Store, disabled: false },
   { label: 'Estoque', to: '#', icon: LayoutGrid, disabled: true },
   { label: 'Comandas', to: '#', icon: QrCode, disabled: true },
 ]

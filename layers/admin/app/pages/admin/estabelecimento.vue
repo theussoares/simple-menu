@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { toast } from '#layers/base/app/components/ui/sonner'
-import { updateEstablishmentAppearanceSchema } from '#shared/schemas/establishment.schema'
+import { updateEstablishmentSchema } from '#shared/schemas/establishment.schema'
 import type { EstablishmentDto } from '#shared/types/domain'
 
 definePageMeta({
@@ -10,19 +10,25 @@ definePageMeta({
 
 const auth = useAuthStore()
 
+const name = ref(auth.user?.establishment?.name ?? '')
+const segment = ref(auth.user?.establishment?.segment ?? '')
 const coverImageUrl = ref(auth.user?.establishment?.coverImageUrl ?? '')
 const logoUrl = ref(auth.user?.establishment?.logoUrl ?? '')
 const submitting = ref(false)
 const errorMessage = ref('')
 
+const segmentSuggestions = ['Restaurante', 'Bar', 'Cafeteria', 'Lanchonete', 'Pizzaria', 'Food truck']
+
 async function onSubmit() {
   errorMessage.value = ''
-  const parsed = updateEstablishmentAppearanceSchema.safeParse({
+  const parsed = updateEstablishmentSchema.safeParse({
+    name: name.value,
+    segment: segment.value,
     coverImageUrl: coverImageUrl.value,
     logoUrl: logoUrl.value,
   })
   if (!parsed.success) {
-    errorMessage.value = 'Não foi possível salvar as imagens.'
+    errorMessage.value = 'Informe um nome com pelo menos 2 caracteres.'
     return
   }
 
@@ -33,7 +39,7 @@ async function onSubmit() {
       body: parsed.data,
     })
     auth.setEstablishment(establishment)
-    toast.success('Aparência atualizada.')
+    toast.success('Estabelecimento atualizado.')
   }
   catch (error) {
     errorMessage.value = getErrorMessage(error) ?? 'Não foi possível salvar.'
@@ -47,13 +53,27 @@ async function onSubmit() {
 <template>
   <div class="max-w-xl space-y-6">
     <div>
-      <h1 class="text-2xl font-semibold tracking-tight">Aparência do cardápio</h1>
-      <p class="text-sm text-muted-foreground">Personalize a logo e o banner que aparecem no seu cardápio digital.</p>
+      <h1 class="text-2xl font-semibold tracking-tight">Estabelecimento</h1>
+      <p class="text-sm text-muted-foreground">Nome, tipo de negócio, logo e banner que aparecem no seu cardápio digital.</p>
     </div>
 
     <Card>
       <CardContent class="space-y-6 pt-6">
         <form class="space-y-6" @submit.prevent="onSubmit">
+          <div class="space-y-4">
+            <div class="space-y-1.5">
+              <Label for="name">Nome do estabelecimento</Label>
+              <Input id="name" v-model="name" required placeholder="Ex: Bar do Zé" />
+            </div>
+            <div class="space-y-1.5">
+              <Label for="segment">Tipo de negócio (opcional)</Label>
+              <Input id="segment" v-model="segment" list="segment-suggestions" placeholder="Ex: Bar" />
+              <datalist id="segment-suggestions">
+                <option v-for="item in segmentSuggestions" :key="item" :value="item" />
+              </datalist>
+            </div>
+          </div>
+
           <EstablishmentMediaUpload
             v-model="logoUrl"
             endpoint="/api/admin/establishment/logo"
