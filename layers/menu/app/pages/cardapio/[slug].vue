@@ -51,7 +51,7 @@ const categories = computed(() => {
   const groups = new Map<string, PublicMenuProductDto[]>()
 
   for (const product of filteredProducts.value) {
-    const key = product.category?.trim() || 'Cardápio'
+    const key = product.category?.name ?? 'Cardápio'
     if (!groups.has(key)) groups.set(key, [])
     groups.get(key)!.push(product)
   }
@@ -62,7 +62,7 @@ const categories = computed(() => {
 const allCategoryNames = computed(() => {
   const names = new Set<string>()
   for (const product of menu.value?.products ?? []) {
-    names.add(product.category?.trim() || 'Cardápio')
+    names.add(product.category?.name ?? 'Cardápio')
   }
   return Array.from(names)
 })
@@ -302,7 +302,7 @@ useHead({
           <DialogHeader class="space-y-1 text-left">
             <DialogTitle>{{ selectedProduct.name }}</DialogTitle>
             <p v-if="selectedProduct.category" class="text-xs uppercase tracking-wide text-muted-foreground">
-              {{ selectedProduct.category }}
+              {{ selectedProduct.category.name }}
             </p>
           </DialogHeader>
           <p v-if="selectedProduct.description" class="text-sm text-muted-foreground">
@@ -315,6 +315,18 @@ useHead({
             <p class="text-xl font-semibold text-primary">
               {{ formatCurrency(selectedProduct.promoPrice ?? selectedProduct.price) }}
             </p>
+          </div>
+          <div v-if="selectedProduct.complementGroups.length > 0" class="space-y-2 border-t pt-3">
+            <div v-for="group in selectedProduct.complementGroups" :key="group.id" class="text-sm">
+              <p class="font-medium text-foreground">
+                {{ group.name }}<span v-if="group.isRequired" class="text-muted-foreground"> (obrigatório)</span>
+              </p>
+              <p class="text-muted-foreground">
+                <span v-for="(option, index) in group.options" :key="option.id">
+                  {{ option.name }}<template v-if="option.priceDelta > 0"> (+{{ formatCurrency(option.priceDelta) }})</template>{{ index < group.options.length - 1 ? ' · ' : '' }}
+                </span>
+              </p>
+            </div>
           </div>
         </div>
       </DialogContent>
