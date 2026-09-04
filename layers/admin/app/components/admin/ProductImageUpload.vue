@@ -36,12 +36,14 @@ async function onFileSelected(event: Event) {
   }
 
   uploading.value = true;
+  let previewSwapped = false;
   try {
     const { blob, originalBytes, optimizedBytes } = await optimizeImageToWebp(file);
 
     if (localPreviewUrl.value) URL.revokeObjectURL(localPreviewUrl.value);
     localPreviewUrl.value = URL.createObjectURL(blob);
     sizeSummary.value = `${formatBytes(originalBytes)} → ${formatBytes(optimizedBytes)}`;
+    previewSwapped = true;
 
     const formData = new FormData();
     formData.append("file", blob, "image.webp");
@@ -53,6 +55,11 @@ async function onFileSelected(event: Event) {
 
     modelValue.value = url;
   } catch (error) {
+    if (previewSwapped) {
+      URL.revokeObjectURL(localPreviewUrl.value);
+      localPreviewUrl.value = "";
+      sizeSummary.value = "";
+    }
     toast.error(getErrorMessage(error) ?? "Não foi possível enviar a imagem.");
   } finally {
     uploading.value = false;
